@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -11,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 load_dotenv()
 
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
@@ -71,16 +70,10 @@ SYSTEM_PROMPT = """
 SCHEMA = {
     "type": "object",
     "properties": {
-        "category": {
-            "type": "string",
-            "enum": ["инсайт", "наблюдение", "факт", "тренд", "гипотеза", "статистика", "мнение", "преимущество продукта", "слоган", "другое"],
-        },
         "is_insight": {"type": "boolean"},
-        "strength": {"type": "string", "enum": ["strong", "emerging", "none"]},
-        "reason": {"type": "string"},
-        "suggestion": {"type": ["string", "null"]},
+        "why": {"type": "string"},
     },
-    "required": ["category", "is_insight", "strength", "reason", "suggestion"],
+    "required": ["is_insight", "why"],
     "additionalProperties": False,
 }
 
@@ -89,7 +82,7 @@ def call_model(user_text: str) -> dict:
     response = client.responses.create(
         model=OPENAI_MODEL,
         input=[
-            {"role": "system", "content": PROMPT_V12},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_text},
         ],
         text={
@@ -106,21 +99,9 @@ def call_model(user_text: str) -> dict:
 
 
 def humanize(result: dict) -> str:
-    category = result.get("category")
     is_insight = result.get("is_insight")
-    strength = result.get("strength")
-    reason = (result.get("reason") or "").strip()
-    suggestion: Optional[str] = result.get("suggestion")
-
-    if is_insight and strength == "strong":
-        return f"Это инсайт. {reason}"
-
-    if (not is_insight) and strength == "emerging":
-        if suggestion:
-            return f"Это пока не инсайт, но мысль близкая. {reason}\n\nЧтобы усилить мысль: {suggestion}"
-        return f"Это пока не инсайт, но мысль близкая. {reason}"
-
-    return f"Это не инсайт, а {category}. {reason}"
+    why = (result.get("why") or "").strip()
+    return ("Это инсайт. " if is_insight else "Это не инсайт. ") + why
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -140,7 +121,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(reply)
     except Exception:
         logger.exception("Model or bot error")
-        await update.message.reply_text("Не получилось оценить формулировку. Попробуй отправить одну мысль одним сообщением.")
+        return
 
 
 if __name__ == "__main__":
