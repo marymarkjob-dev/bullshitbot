@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -11,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 load_dotenv()
 
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
@@ -100,21 +99,9 @@ def call_model(user_text: str) -> dict:
 
 
 def humanize(result: dict) -> str:
-    category = result.get("category")
     is_insight = result.get("is_insight")
-    strength = result.get("strength")
-    reason = (result.get("reason") or "").strip()
-    suggestion: Optional[str] = result.get("suggestion")
-
-    if is_insight and strength == "strong":
-        return f"Это инсайт. {reason}"
-
-    if (not is_insight) and strength == "emerging":
-        if suggestion:
-            return f"Это пока не инсайт, но мысль близкая. {reason}\n\nЧтобы усилить мысль: {suggestion}"
-        return f"Это пока не инсайт, но мысль близкая. {reason}"
-
-    return f"Это не инсайт, а {category}. {reason}"
+    why = (result.get("why") or "").strip()
+    return ("Это инсайт. " if is_insight else "Это не инсайт. ") + why
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
